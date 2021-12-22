@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const validator = require('validator');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+require('dotenv').config()
 
 
 const reporterSchema = mongoose.Schema({
@@ -53,9 +54,35 @@ const reporterSchema = mongoose.Schema({
         },
         unique: true
 
+    },
+    avatar: {
+        type: Buffer
     }
 
 })
+
+reporterSchema.virtual('news', {
+    ref: "News",
+    localField: "_id",
+    foreignField: "owner"
+})
+
+
+reporterSchema.statics.specificFind = async (email, password) => {
+    const reporter = await Reporters.findOne({
+        email
+    })
+    if (!reporter) {
+        throw new Error("Unable to login ... plz check email or password")
+    }
+    const isMatch = await bcrypt.compare(password, reporter.password)
+    if (!isMatch) {
+        throw new Error("Unable to login ... plz check email or password")
+    }
+    return reporter
+}
+
+
 
 reporterSchema.pre('save', async function (next) {
     const reporter = this
@@ -69,7 +96,7 @@ reporterSchema.methods.generatToken = async function () {
     const reporters = this
     var token = jwt.sign({
         _id: reporters._id.toString()
-    }, "goodmorning");
+    }, process.env.SECRET);
     reporters.tokens = reporters.tokens.concat(token)
     await reporters.save()
     return token
@@ -78,15 +105,11 @@ reporterSchema.methods.generatToken = async function () {
 
 
 reporterSchema.methods.toJSON = function () {
-
     const reporters = this
-
     const reporterObject = reporters.toObject()
     delete reporterObject.password
     delete reporterObject.tokens
-
     return reporterObject
-
 }
 
 

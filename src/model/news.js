@@ -15,6 +15,11 @@ const newsSchema = mongoose.Schema({
     date: {
         type: Date,
         required: true
+    },
+    owner: {
+        type: mongoose.Schema.Types.ObjectId,
+        required: true,
+        ref: 'Reporter'
     }
 
 })

@@ -1,13 +1,17 @@
 const express = require('express')
 const router = express.Router()
 const News = require('../model/news')
+const auth = require('../middleware/auth')
 
 
-router.post('/news', async (req, res) => {
+router.post('/news', auth, async (req, res) => {
     try {
-        const news = await News(req.body)
-        news.save()
-        res.status(200).send(news)
+        const news = new News({
+            ...req.body,
+            owner: req.reporter._id
+        })
+        await news.save()
+        res.status(201).send(news)
     } catch (error) {
         res.status(400).send(error.message)
     }
@@ -15,19 +19,22 @@ router.post('/news', async (req, res) => {
 
 
 ///////////////////////////////////////////////
-router.get('/news', async (req, res) => {
+router.get('/news', auth, async (req, res) => {
     try {
-        const news = await News.find({})
-        res.status(200).send(news)
+        await req.reporter.populate("news")
+        res.send(req.reporter.news)
     } catch (error) {
         res.status(400).send(error.message)
     }
 })
 ////////////////////////////////////////////////////////
-router.get('/news/:id', async (req, res) => {
+router.get('/news/:id', auth, async (req, res) => {
     try {
         const _id = req.params.id
-        const news = await News.findById(_id)
+        const news = await News.findOne({
+            _id,
+            owner: req.reporter._id
+        })
         if (!news) {
             return res.status(404).send("unable to find data")
         }
@@ -37,7 +44,7 @@ router.get('/news/:id', async (req, res) => {
     }
 })
 //////////////////////////////////////////////////////
-router.patch("/news/:id", async (req, res) => {
+router.patch("/news/:id", auth, async (req, res) => {
     const updates = Object.keys(req.body)
     const allowedUpdateds = ["title", "description", "date"]
     let isValid = updates.every((el) => allowedUpdateds.includes(el))
@@ -47,23 +54,28 @@ router.patch("/news/:id", async (req, res) => {
 
     try {
         const _id = req.params.id
-        const news = await News.findByIdAndUpdate(_id, req.body, {
-            new: true,
+        const news = await News.findOne({
+            _id,
+            owner: req.reporter._id
         })
         if (!news) {
             return res.status(404).send("unable to find data")
         }
+        updates.forEach((update) => news[update] = req.body[update])
+        await news.save()
         res.status(200).send(news)
-
     } catch (error) {
         res.status(500).send(error.message)
     }
 })
 ///////////////////////////////////////////////////////
-router.delete("/news/:id", async (req, res) => {
+router.delete("/news/:id", auth, async (req, res) => {
     try {
         const _id = req.params.id
-        const news = await News.findByIdAndDelete(_id)
+        const news = await News.findOneAndDelete({
+            _id,
+            owner: req.reporter._id
+        })
         if (!news) {
             return res.status(404).send("reporter not found")
         }
